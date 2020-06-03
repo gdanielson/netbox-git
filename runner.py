@@ -1,0 +1,61 @@
+import logging
+import os
+
+from project import gitstuff, netboxdata
+
+""" This is a temporary experimental file to control running things while
+prototyping NetBox-Git interactions.
+"""
+
+logger = logging.getLogger()
+log_formatter = logging.Formatter(
+    "%(asctime)s %(filename)s:%(lineno)d %(levelname)+8s: " "%(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S%Z",
+)
+s_handler = logging.StreamHandler()
+s_handler.setFormatter(log_formatter)
+logger.addHandler(s_handler)
+logger.setLevel(logging.INFO if not os.environ.get("DEBUG") else logging.DEBUG)
+
+
+NETBOX_URL = gitstuff.get_env_variable("NETBOX_URL")  # e.g. http://ip:[port]
+NETBOX_TOKEN = gitstuff.get_env_variable("NETBOX_TOKEN")
+NETBOX_TAG = gitstuff.get_env_variable("NETBOX_TAG")
+GIT_REMOTE_URL = gitstuff.get_env_variable("GIT_REMOTE_URL")
+GIT_LOCAL_PATH = gitstuff.get_env_variable("GIT_LOCAL_PATH")
+GIT_BRANCH_MAIN = gitstuff.get_env_variable("GIT_BRANCH_MAIN")
+
+
+logger.debug(f"Opening connection to NetBox")
+nbx = netboxdata.GDNetBoxer(url=NETBOX_URL, token=NETBOX_TOKEN, threading=True)
+
+logger.debug(f"Getting interface data from NetBox")
+intf_data = nbx.get_interfaces_data(NETBOX_TAG)
+
+logger.debug(f"Performing git clone from git remote repo")
+rpo = gitstuff.clone_repo(GIT_REMOTE_URL, GIT_LOCAL_PATH)
+r_path = rpo.working_dir
+repo = gitstuff.load_repo(GIT_LOCAL_PATH)
+try:
+    assert (
+        gitstuff.isclean(repo) is True
+    ), f"Cannot proceed, git repo {repo.working_dir} contains uncommitted changes or untracked files"
+except AssertionError as exc:
+    logger.error(str(exc))
+    raise exc
+
+logger.debug(f"Performing git checkout -b")
+# From <GIT_BRANCH_MAIN>, checkout a new branch named <NETBOX_TAG>
+gitstuff.prepare_branch(repo, GIT_BRANCH_MAIN, NETBOX_TAG)
+
+logger.debug(f"Writing interface data to files")
+nbx.write_interfaces_to_file(intf_data)
+
+if gitstuff.commit_all(repo):
+    logger.info("Updates committed to git repo")
+    # FIXME gitstuff.push_branch(repo, NETBOX_TAG) # Push the changes back up to the remote
+else:
+    logger.debug("git repo detected no changes")
+    # FIXME gitstuff.delete_branch(repo, NETBOX_TAG) # No changes so delete the feature branch
+
+logger.info(f"End")

@@ -1,0 +1,12 @@
+# venv/ local python virtual environment
+venv/
+
+# python byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# .vscode/ Visual Studio Code configs
+.vscode/
+
+# .pytest_cache/ cross-test run state cache
+.pytest_cache/
