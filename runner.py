@@ -1,7 +1,7 @@
 import logging
 import os
 
-from project import gitstuff, netboxdata
+from netboxgit import gitstuff, netboxdata
 
 """ This is a temporary experimental file to control running things while
 prototyping NetBox-Git interactions.

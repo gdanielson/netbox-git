@@ -1,7 +1,7 @@
 import logging
 import os
 
-from project import gitstuff, netboxdata
+from netboxgit import gitstuff, netboxdata
 
 """ This is an example prototyping demo for updating NetBox objects from a git repo.
 This could be used to revert some NetBox objects to a different point in time.
