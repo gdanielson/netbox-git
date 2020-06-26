@@ -48,7 +48,7 @@ class GDNetBoxer:
 
     def _del_keys_from_dict(self, d, keys_to_del):
         """ Recursively remove dictionary items that have a key in keys_to_del
-    
+
         :param d: Dict to operate on.
         :type d: dict
         :param keys_to_del: A list of keys for items to be removed.
@@ -66,9 +66,9 @@ class GDNetBoxer:
 
     def _find_mgmt_ip_for_object(self, in_obj):
         """Find the management IP address for a pynetbox object.
-        
+
             For a virtual chassis resolve to the master device.
-        
+
         :param in_obj: pynetbox input object
         :type in_obj: pynetbox input object
         :return: pynetbox primary IP address
@@ -124,22 +124,21 @@ class GDNetBoxer:
         self.interfaces = self.nb.dcim.interfaces.filter(tag=self.nbx_tag)
         return self.interfaces
 
-    def write_interfaces_to_file(self, interfaces):
+    def write_interfaces_to_file(self, interfaces, base_path):
         """Write data for each interface to a JSON file.
 
         :param interfaces: A list of pynetbox interface objects
         :type interfaces: list
         """
         self.interfaces = interfaces
-        # FIXME(GD) Output path must be parameterised.
-        file_path = Path("/Users/gdanielson/repos/netbdata/d/interfaces")
-        if not file_path.exists():
-            file_path.mkdir()
+        file_path = Path.joinpath(Path(base_path), Path("interfaces/"))
+        file_path.mkdir(parents=True, exist_ok=True)
 
         for interface in self.interfaces:
-            # Generate output filename as <device-interface.json> replacing / with -
-            file_str = "-".join((interface.device.name, interface.name)) + ".json"
-            file_str = file_str.replace("/", "-")
+            # Generate output filename as <device--interface.json> replacing / with -
+            intf_name = interface.name
+            intf_name = intf_name.replace("/", "-")
+            file_str = "--".join((interface.device.name, intf_name)) + ".json"
 
             fout = Path(file_path / file_str)
             if not fout.exists():
@@ -211,13 +210,13 @@ class GDNetBoxer:
         However, if method serialize() is used this data is less useful to
         commit into git and operate on for deployment purposes but it can be
         written back to NetBox as is. Two options at the moment:
-        
+
         1. just cast to a dict, then when needed to put back to
         Netbox perform a whole lot of data editing to remove all the bits and
         pieces NetBox doesn't allow back in. 
         TODO(GD): Check on removing/cleaning up the "problem" data when
         recving from NetBox but that may lose useful data for deployment.
-        
+
         2. keep both serialized and the dict versions of the object so that
         serialised data can be written back without having to reverse engineer
         the mangling required. Downside tho is having to track pieces of data
@@ -225,8 +224,9 @@ class GDNetBoxer:
         state/sync.
         """
 
-        unwanted_dict_keys = ["display_name", "url"]  # list of keys to be removed
-        unwanted_dict_values = []  # list of values for keys to be removed
+        # list of keys to be removed
+        unwanted_dict_keys = ["display_name", "url"]
+        unwanted_dict_values = []  # remove keys with these values
 
         for intfs in objects.values():
             for intf in intfs.values():
