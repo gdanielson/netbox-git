@@ -26,12 +26,6 @@ GIT_LOCAL_PATH = gitstuff.get_env_variable("GIT_LOCAL_PATH")
 GIT_BRANCH_MAIN = gitstuff.get_env_variable("GIT_BRANCH_MAIN")
 
 
-logger.debug(f"Opening connection to NetBox")
-nbx = netboxdata.GDNetBoxer(url=NETBOX_URL, token=NETBOX_TOKEN, threading=True)
-
-logger.debug(f"Getting interface data from NetBox")
-intf_data = nbx.get_interfaces_data(NETBOX_TAG)
-
 logger.debug(f"Performing git clone from git remote repo")
 rpo = gitstuff.clone_repo(GIT_REMOTE_URL, GIT_LOCAL_PATH)
 r_path = rpo.working_dir
@@ -48,8 +42,14 @@ logger.debug(f"Performing git checkout -b")
 # From <GIT_BRANCH_MAIN>, checkout a new branch named <NETBOX_TAG>
 gitstuff.prepare_branch(repo, GIT_BRANCH_MAIN, NETBOX_TAG)
 
+logger.debug(f"Opening connection to NetBox")
+nbx = netboxdata.GDNetBoxer(url=NETBOX_URL, token=NETBOX_TOKEN, threading=True)
+
+logger.debug(f"Getting interface data from NetBox")
+intf_data = nbx.get_interfaces_data(NETBOX_TAG)
+
 logger.debug(f"Writing interface data to files")
-nbx.write_interfaces_to_file(intf_data)
+nbx.write_interfaces_to_file(intf_data, repo.working_dir)
 
 if gitstuff.commit_all(repo):
     logger.info("Updates committed to git repo")
