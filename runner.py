@@ -17,7 +17,8 @@ s_handler.setFormatter(log_formatter)
 logger.addHandler(s_handler)
 logger.setLevel(logging.INFO if not os.environ.get("DEBUG") else logging.DEBUG)
 
-
+_ssl_verify = os.environ.get("NETBOX_SSL_VERIFY").lower()
+NETBOX_SSL_VERIFY = False if _ssl_verify in ("no", "n", "false", "0", "") else True
 NETBOX_URL = gitstuff.get_env_variable("NETBOX_URL")  # e.g. http://ip:[port]
 NETBOX_TOKEN = gitstuff.get_env_variable("NETBOX_TOKEN")
 NETBOX_TAG = gitstuff.get_env_variable("NETBOX_TAG")
@@ -43,7 +44,9 @@ logger.debug(f"Performing git checkout -b")
 gitstuff.prepare_branch(repo, GIT_BRANCH_MAIN, NETBOX_TAG)
 
 logger.debug(f"Opening connection to NetBox")
-nbx = netboxdata.GDNetBoxer(url=NETBOX_URL, token=NETBOX_TOKEN, threading=True)
+nbx = netboxdata.GDNetBoxer(
+    url=NETBOX_URL, token=NETBOX_TOKEN, threading=True, ssl_verify=NETBOX_SSL_VERIFY
+)
 
 logger.debug(f"Getting interface data from NetBox")
 intf_data = nbx.get_interfaces_data(NETBOX_TAG)

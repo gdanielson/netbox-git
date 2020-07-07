@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pynetbox
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ class GDNetBoxer:
     """
     """
 
-    def __init__(self, url=None, token=None, threading=False):
+    def __init__(self, url=None, token=None, threading=False, ssl_verify=True):
         """
         """
 
@@ -21,7 +22,9 @@ class GDNetBoxer:
         self.token = token
         self.threading = threading
 
-        self.nb = pynetbox.api(self.url, token=self.token, threading=self.threading,)
+        self.nb = pynetbox.api(self.url, token=self.token, threading=self.threading)
+        self.nb.http_session = requests.Session()
+        self.nb.http_session.verify = True if ssl_verify else False
 
     def _fix_for_filename(self, in_filename):
         """ Replace path separator character in name.
