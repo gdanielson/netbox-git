@@ -86,13 +86,14 @@ class GDNetBoxer:
 
         self.in_obj = in_obj
 
-        if self.in_obj.primary_ip4:
+        try:
             return self.in_obj.primary_ip4.address
+        except AttributeError:
 
-        elif self.in_obj.virtual_chassis:
-            self._d = self.nb.dcim.devices.get(self.in_obj.virtual_chassis.master.id)
-        elif self.in_obj.device:
-            self._d = self.nb.dcim.devices.get(self.in_obj.id)
+            if self.in_obj.virtual_chassis:
+                self._d = self.nb.dcim.devices.get(self.in_obj.virtual_chassis.master.id)
+            elif self.in_obj.device:
+                self._d = self.nb.dcim.devices.get(self.in_obj.device.id)
 
         self._find_mgmt_ip_for_object(self._d)
 
@@ -125,6 +126,9 @@ class GDNetBoxer:
 
         self.nbx_tag = nbx_tag
         self.interfaces = self.nb.dcim.interfaces.filter(tag=self.nbx_tag)
+        i0 = self.interfaces[0]
+        self._find_mgmt_ip_for_object(i0)
+
         return self.interfaces
 
     def write_interfaces_to_file(self, interfaces, base_path):
