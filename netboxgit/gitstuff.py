@@ -153,13 +153,13 @@ def prepare_branch(repo, branch_from, branch_to):
         raise exc
 
 
-def commit_all(repo):
+def commit_all(repo, commit_msg):
     """Add all changes (including untracked files) creating a new commit.
-
-        The generated commit message is made up of the filenames up to a max. line length.
 
     :param repo: The repo to operate on
     :type repo: :class:`git.cmd.Git`
+    :param commit_msg: Information string for the git commit
+    :type commit_msg: str
     :return: `True` if the commit succeeded, `False` otherwise
     :rtype: bool
     """
@@ -167,11 +167,6 @@ def commit_all(repo):
 
     logger.debug(f"Performing git commit of all changes")
     if not isclean(repo):
-        rawstring = repo.status("--porcelain")
-        # 1st 3 chars in porcelain output is status, drop them leaving just the filename
-        filenames = [i[3:] for i in rawstring.splitlines()]
-        long_msg = ["Upd"] + filenames
-        commit_msg = textwrap.shorten(" ".join(long_msg), width=70, placeholder="...")
         repo.add("--all")
         repo.commit(message=commit_msg)
         return True
