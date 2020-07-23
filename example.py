@@ -34,7 +34,7 @@ repo = gitstuff.load_repo(GIT_LOCAL_PATH)
 try:
     assert (
         gitstuff.isclean(repo) is True
-    ), f"Cannot proceed, git repo {repo.working_dir} contains uncommitted changes or untracked files"
+    ), f"Cannot proceed, git repo {r_path} contains uncommitted changes or untracked files"
 except AssertionError as exc:
     logger.error(str(exc))
     raise exc
@@ -51,8 +51,20 @@ nbx = netboxdata.GDNetBoxer(
 logger.debug(f"Getting interface data from NetBox")
 intf_data = nbx.get_interfaces_data(NETBOX_TAG)
 
-logger.debug(f"Writing interface data to files")
-nbx.write_interfaces_to_file(intf_data, repo.working_dir)
+logger.debug(f"Writing interface data to {r_path}")
+nbx.write_interfaces_to_file(intf_data, r_path)
+
+logger.debug(f"Getting device name & ip for interface data")
+devices = {}
+for intf in intf_data:
+    device = {}
+    device_ip = nbx.find_mgmt_ip_for_object(intf)
+    device["hostname"] = device_ip
+    device["platform"] = intf.device.platform.name
+    devices[intf.device.name] = device
+
+logger.debug(f"Writing device data to {r_path}")
+nbx.write_devices_to_file(devices, r_path)
 
 if gitstuff.commit_all(repo):
     logger.info("Updates committed to git repo")

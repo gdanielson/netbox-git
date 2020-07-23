@@ -67,10 +67,10 @@ class GDNetBoxer:
             if not k in keys_to_del
         }
 
-    def _find_mgmt_ip_for_object(self, in_obj):
+    def find_mgmt_ip_for_object(self, in_obj):
         """Find the management IP address for a pynetbox object.
 
-            For a virtual chassis resolve to the master device.
+            TODO(GD) For a virtual chassis resolve to the master device.
 
         :param in_obj: pynetbox input object
         :type in_obj: pynetbox input object
@@ -78,23 +78,25 @@ class GDNetBoxer:
         :rtype: pynetbox ip
         """
 
-        # The management IP address of an interface that is within a virtual chassis...
-        # intf = nb.dcim.devices.get(INTERFACE)
-        # intf_dev = intf.device.id
-        # intf_dev_vc = intf_dev.virtual_chassis.master.id
-        # intf_dev_vc_addr = intf_dev_vc.primary_ip4.address  # e.g. 192.168.1.21/24
-
         self.in_obj = in_obj
 
-        if self.in_obj.primary_ip4:
+        try:
             return self.in_obj.primary_ip4.address
+        except AttributeError:
 
-        elif self.in_obj.virtual_chassis:
-            self._d = self.nb.dcim.devices.get(self.in_obj.virtual_chassis.master.id)
-        elif self.in_obj.device:
-            self._d = self.nb.dcim.devices.get(self.in_obj.id)
+            # The management IP address of an interface that is within a virtual chassis...
+            # intf = nb.dcim.devices.get(INTERFACE)
+            # intf_dev = intf.device.id
+            # intf_dev_vc = intf_dev.virtual_chassis.master.id
+            # intf_dev_vc_addr = intf_dev_vc.primary_ip4.address  # e.g. 192.168.1.21/24
 
-        self._find_mgmt_ip_for_object(self._d)
+            # # This needs to handle missing "virtual_chassis" attribute...
+            # if self.in_obj.virtual_chassis:
+            #     self._d = self.nb.dcim.devices.get(self.in_obj.virtual_chassis.master.id)
+
+            if self.in_obj.device:
+                self._d = self.nb.dcim.devices.get(self.in_obj.device.id)
+                return self.find_mgmt_ip_for_object(self._d)
 
     def get_tag_from_netbox(self, tag_name=""):
         """Retrieve the named NetBox tag data.
@@ -126,6 +128,19 @@ class GDNetBoxer:
         self.nbx_tag = nbx_tag
         self.interfaces = self.nb.dcim.interfaces.filter(tag=self.nbx_tag)
         return self.interfaces
+
+    def write_devices_to_file(self, devices, base_path):
+        """Write data for each device to a JSON file.
+
+        :param interfaces: A dict of device information
+        :type interfaces: dict
+        """
+        self.devices = devices
+        file_path = Path.joinpath(Path(base_path), Path("devices/"))
+        file_path.mkdir(parents=True, exist_ok=True)
+        fout = Path(file_path / "devices.json")
+        with open(fout, "w", buffering=1) as f:
+            f.write(json.dumps(self.devices, sort_keys=True, indent=4))
 
     def write_interfaces_to_file(self, interfaces, base_path):
         """Write data for each interface to a JSON file.
@@ -180,27 +195,6 @@ class GDNetBoxer:
         self.nbx_tag = nbx_tag
         self.devices = self.nb.dcim.devices.filter(tag=self.nbx_tag)
         return self.devices
-
-    def write_devices_to_file(self, devices):
-        """Write the devices data to a JSON file.
-        """
-        self.devices = devices
-        # TODO(GD) Factor out the path to a param
-        file_path = Path("/Users/gdanielson/repos/netbdata/d/devices")
-        if not file_path.exists():
-            file_path.mkdir(parents=True)
-
-        for device in devices:
-            device_d = dict(device)
-            # record = json.dumps(device.serialize(), sort_keys=True, indent=4)
-            # cleaned_device = self._cleandict(dict(device))
-            record = json.dumps(device_d, sort_keys=True, indent=4)
-
-            fn = Path(f"{file_path}/{device.name}.json")
-            if not fn.exists():
-                fn.touch()
-            with open(fn, "w", buffering=1) as f:
-                f.write(record)
 
     def adapt_interfaces_for_netbox(self, objects):
         """
