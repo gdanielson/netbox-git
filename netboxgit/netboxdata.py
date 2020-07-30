@@ -67,21 +67,20 @@ class GDNetBoxer:
             if not k in keys_to_del
         }
 
-    def find_mgmt_ip_for_object(self, in_obj):
-        """Find the management IP address for a pynetbox object.
-
-            TODO(GD) For a virtual chassis resolve to the master device.
+    def find_pri_device_for_object(self, in_obj):
+        """For a given object find the relating device containing the primary IP address.
 
         :param in_obj: pynetbox input object
         :type in_obj: pynetbox input object
-        :return: pynetbox primary IP address
-        :rtype: pynetbox ip
+        :return: pynetbox object containing the primary IP address
+        :rtype: pynetbox device
         """
 
-        self.in_obj = in_obj
-
         try:
-            return self.in_obj.primary_ip4.address
+
+            if in_obj.primary_ip4.address:
+                return in_obj
+
         except AttributeError:
 
             # The management IP address of an interface that is within a virtual chassis...
@@ -90,13 +89,17 @@ class GDNetBoxer:
             # intf_dev_vc = intf_dev.virtual_chassis.master.id
             # intf_dev_vc_addr = intf_dev_vc.primary_ip4.address  # e.g. 192.168.1.21/24
 
-            # # This needs to handle missing "virtual_chassis" attribute...
-            # if self.in_obj.virtual_chassis:
-            #     self._d = self.nb.dcim.devices.get(self.in_obj.virtual_chassis.master.id)
+            try:
+                _device = self.nb.dcim.devices.get(in_obj.virtual_chassis.master.id)
+            except AttributeError:
+                pass
 
-            if self.in_obj.device:
-                self._d = self.nb.dcim.devices.get(self.in_obj.device.id)
-                return self.find_mgmt_ip_for_object(self._d)
+            try:
+                _device = self.nb.dcim.devices.get(in_obj.device.id)
+            except AttributeError:
+                pass
+
+            return self.find_pri_device_for_object(_device)
 
     def get_tag_from_netbox(self, tag_name=""):
         """Retrieve the named NetBox tag data.

@@ -58,15 +58,15 @@ logger.debug(f"Getting device name & ip for interface data")
 devices = {}
 for intf in intf_data:
     device = {}
-    device_ip = nbx.find_mgmt_ip_for_object(intf)
-    device["hostname"] = device_ip
-    device["platform"] = intf.device.platform.name
-    devices[intf.device.name] = device
+    pri_device = nbx.find_pri_device_for_object(intf)
+    device["hostname"] = pri_device.primary_ip4.address
+    device["platform"] = pri_device.platform.slug
+    devices[pri_device.name] = device
 
 logger.debug(f"Writing device data to {r_path}")
 nbx.write_devices_to_file(devices, r_path)
 
-if gitstuff.commit_all(repo):
+if gitstuff.commit_all(repo, NETBOX_TAG):
     logger.info("Updates committed to git repo")
     # FIXME gitstuff.push_branch(repo, NETBOX_TAG) # Push the changes back up to the remote
 else:
