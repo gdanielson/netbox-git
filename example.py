@@ -67,10 +67,11 @@ logger.debug(f"Writing device data to {r_path}")
 nbx.write_devices_to_file(devices, r_path)
 
 if gitstuff.commit_all(repo, NETBOX_TAG):
-    logger.info("Updates committed to git repo")
-    # FIXME gitstuff.push_branch(repo, NETBOX_TAG) # Push the changes back up to the remote
+    logger.info(f"Updates committed to git branch {NETBOX_TAG}")
+    gitstuff.push_branch(repo, NETBOX_TAG)
+    logger.info(f"git branch {NETBOX_TAG} pushed to remote")
 else:
-    logger.debug("git repo detected no changes")
     # FIXME gitstuff.delete_branch(repo, NETBOX_TAG) # No changes so delete the feature branch
+    logger.info("No changes to git repo")
 
 logger.info(f"End")

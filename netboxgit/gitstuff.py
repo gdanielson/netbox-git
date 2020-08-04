@@ -184,7 +184,21 @@ def push_branch(repo, branch_name, remote="origin"):
     :param remote: The name of the git remote to push to
     :type remote: str
     """
-    pass
+    try:
+        push_out_raw = repo.push("--porcelain", remote, branch_name)
+    except GitError as exc:
+        logger.error(str(exc))
+        raise exc
+
+    bad_words = ["failed", "error", "rejected"]
+
+    if any([word in push_out_raw.lower() for word in bad_words]):
+        [logger.error(eline) for eline in push_out_raw.splitlines()]
+        raise RuntimeError(
+            f"Bad response detected in the output of 'git push {remote} {branch_name}'"
+        )
+
+    logger.debug(push_out_raw.splitlines())
 
 
 def delete_branch(repo, branch_name):
