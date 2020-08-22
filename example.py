@@ -30,6 +30,7 @@ GIT_BRANCH_MAIN = gitstuff.get_env_variable("GIT_BRANCH_MAIN")
 logger.debug(f"Performing git clone from git remote repo")
 rpo = gitstuff.clone_repo(GIT_REMOTE_URL, GIT_LOCAL_PATH)
 r_path = rpo.working_dir
+data_path = "/".join([r_path, "data", "waiting", NETBOX_TAG])
 repo = gitstuff.load_repo(GIT_LOCAL_PATH)
 try:
     assert (
@@ -51,8 +52,11 @@ nbx = netboxdata.GDNetBoxer(
 logger.debug(f"Getting interface data from NetBox")
 intf_data = nbx.get_interfaces_data(NETBOX_TAG)
 
-logger.debug(f"Writing interface data to {r_path}")
-nbx.write_interfaces_to_file(intf_data, r_path)
+if not intf_data:
+    logger.info(f"No data returned for NetBox objects tagged {NETBOX_TAG}")
+
+logger.debug(f"Writing interface data to {data_path}")
+nbx.write_interfaces_to_file(intf_data, data_path)
 
 logger.debug(f"Getting device name & ip for interface data")
 devices = {}
@@ -63,8 +67,8 @@ for intf in intf_data:
     device["platform"] = pri_device.platform.slug
     devices[pri_device.name] = device
 
-logger.debug(f"Writing device data to {r_path}")
-nbx.write_devices_to_file(devices, r_path)
+logger.debug(f"Writing device data to {data_path}")
+nbx.write_devices_to_file(devices, data_path)
 
 if gitstuff.commit_all(repo, NETBOX_TAG):
     logger.info(f"Updates committed to git branch {NETBOX_TAG}")
