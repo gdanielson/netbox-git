@@ -121,8 +121,9 @@ def prepare_branch(repo, branch_from, branch_to):
     """ Checkout a new git branch ready for updates to commit.
 
     git checkout MASTER
-    git fetch -p origin
-    git checkout -b newbranch --no-track origin/master
+    git checkout branch_to 
+    if error branch_to doesn't exist:
+        git checkout -b branch_to --no-track origin/master
 
     :param repo: The repo to operate on
     :type repo: :class:`git.cmd.Git`
@@ -133,14 +134,21 @@ def prepare_branch(repo, branch_from, branch_to):
     :return: Branch name created
     :rtype: TODO
     """
-    logger.debug(f"git checkout a new branch for updating")
-    assert (
-        repo.rev_parse("--abbrev-ref", "HEAD") == branch_from
-    ), f"Repo is not on branch {branch_from}"
 
+    # TODO check confirm is this check needed when cloning from a bare repo?
+    logger.debug(f"Check that repo is on {branch_from}")
+    if repo.rev_parse("--abbrev-ref", "HEAD") != branch_from:
+        raise RuntimeError(f"The remote repo is not on branch {branch_from}")
+
+    logger.debug(f"git checkout branch {branch_to} for updating")
     try:
-        repo.checkout(branch_from, b=branch_to)
+        repo.checkout(branch_to)
     except GitError as exc:
+        try:
+            repo.checkout(branch_from, b=branch_to)
+        except GitError as exc:
+            pass
+
         logger.error(str(exc))
         raise exc
 
