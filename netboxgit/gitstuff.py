@@ -58,7 +58,7 @@ def get_env_variable(env_var):
 
 
 def clone_repo(remote_url, local_path):
-    """ Create a local clone from the remote repo to work on.
+    """Create a local clone from the remote repo to work on.
 
     :param remote_url: The Git URL of the source to clone from.
     :type remote_url: str File system path.
@@ -77,7 +77,7 @@ def clone_repo(remote_url, local_path):
 
 
 def load_repo(repo_path):
-    """ Load a repo from the path specified and checking it is in a clean state.
+    """Load a repo from the path specified and checking it is in a clean state.
 
     :param repo_path: The git working tree directory to work on
     :type repo_path: str File system path
@@ -118,10 +118,10 @@ def isclean(repo):
 
 
 def prepare_branch(repo, branch_from, branch_to):
-    """ Checkout a new git branch ready for updates to commit.
+    """Checkout a new git branch ready for updates to commit.
 
     git checkout MASTER
-    git checkout branch_to 
+    git checkout branch_to
     if error branch_to doesn't exist:
         git checkout -b branch_to --no-track origin/master
 
@@ -144,18 +144,12 @@ def prepare_branch(repo, branch_from, branch_to):
     try:
         repo.checkout(branch_to)
     except GitError as exc:
-        try:
-            repo.checkout(branch_from, b=branch_to)
-        except GitError as exc:
-            pass
-
-        logger.error(str(exc))
-        raise exc
+        repo.checkout(branch_from, b=branch_to)
 
     try:
         assert (
             repo.rev_parse("--abbrev-ref", "HEAD") == branch_to
-        ), f"Problem with git checkout -b {branch_to} "
+        ), f"Problem with git checkout of {branch_to} "
     except AssertionError as exc:
         logger.error(str(exc))
         raise exc
@@ -183,7 +177,7 @@ def commit_all(repo, commit_msg):
 
 
 def push_branch(repo, branch_name, remote="origin"):
-    """ Perform git push of the given branch to the named remote.
+    """Perform git push of the given branch to the named remote.
 
     :param repo: The repo to operate on
     :type repo: :class:`git.cmd.Git`
@@ -210,7 +204,7 @@ def push_branch(repo, branch_name, remote="origin"):
 
 
 def delete_branch(repo, branch_name):
-    """ Delete the given git branch from the repo.
+    """Delete the given git branch from the repo.
 
     :param repo: The repo to operate on
     :type repo: :class:`git.cmd.Git`
