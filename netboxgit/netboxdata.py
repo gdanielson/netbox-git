@@ -148,20 +148,25 @@ class GDNetBoxer:
     def write_interfaces_to_file(self, interfaces, base_path):
         """Write data for each interface to a JSON file.
 
+        base_path/"devices"/device/"interfaces"/interface".json"
+
         :param interfaces: A list of pynetbox interface objects
         :type interfaces: list
+        :param base_path: The filesystem location for config data
+        :type base_path: `pathlib.Path`
         """
         self.interfaces = interfaces
-        file_path = Path.joinpath(Path(base_path), Path("interfaces/"))
-        file_path.mkdir(parents=True, exist_ok=True)
+        devices_path = Path.joinpath(base_path, Path("devices/"))
 
         for interface in self.interfaces:
-            # Generate output filename as <device--interface.json> replacing / with -
-            intf_name = interface.name
-            intf_name = intf_name.replace("/", "-")
-            file_str = "--".join((interface.device.name, intf_name)) + ".json"
+            dev_name = interface.device.name
+            # Interface name forward slashes clash with filesystem path
+            intf_name = interface.name.replace("/", "-")
+            intfs_path = Path.joinpath(devices_path / dev_name / Path("interfaces/"))
+            intfs_path.mkdir(parents=True, exist_ok=True)
+            intf_file_name = ".".join([intf_name, "json"])
 
-            fout = Path(file_path / file_str)
+            fout = Path(intfs_path / intf_file_name)
             if not fout.exists():
                 fout.touch()
             intf = dict(interface)  # cast pynetbox object to dict
