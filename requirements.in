@@ -1,3 +1,9 @@
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# W a r n i n g
+# this repo does NOT yet use pip-tools this file is currently used in an
+# entirely manual way see
+# [Issue#17]|(https://github.com/gdanielson/netbox-git/issues/17)
+
 GitPython>=3.1.3
 
 pynetbox==4.3.1

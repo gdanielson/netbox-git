@@ -132,14 +132,13 @@ class GDNetBoxer:
         self.interfaces = self.nb.dcim.interfaces.filter(tag=self.nbx_tag)
         return self.interfaces
 
-    def write_devices_to_file(self, devices, base_path):
+    def write_devices_to_file(self, devices, file_path):
         """Write data for each device to a JSON file.
 
         :param interfaces: A dict of device information
         :type interfaces: dict
         """
         self.devices = devices
-        file_path = Path.joinpath(Path(base_path), Path("devices/"))
         file_path.mkdir(parents=True, exist_ok=True)
         fout = Path(file_path / "devices.json")
         with open(fout, "w", buffering=1) as f:
