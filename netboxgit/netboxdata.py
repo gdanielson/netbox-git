@@ -76,10 +76,17 @@ class GDNetBoxer:
         :rtype: pynetbox device
         """
 
+        # if virtual_chassis
+        #   save current device
+        vchassis_name = None    #
+
         try:
 
             if in_obj.primary_ip4.address:
-                return in_obj
+                if in_obj.virtual_chassis:
+                    vchassis_name = in_obj.virtual_chassis.name
+
+                return in_obj, vchassis_name
 
         except AttributeError:
 
@@ -95,6 +102,7 @@ class GDNetBoxer:
                 pass
 
             try:
+                # an interface object has a parent "device"
                 _device = self.nb.dcim.devices.get(in_obj.device.id)
             except AttributeError:
                 pass
