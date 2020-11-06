@@ -11,12 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 class GDNetBoxer:
-    """
-    """
+    """"""
 
     def __init__(self, url=None, token=None, threading=False, ssl_verify=True):
-        """
-        """
+        """"""
 
         self.url = url
         self.token = token
@@ -26,18 +24,80 @@ class GDNetBoxer:
         self.nb.http_session = requests.Session()
         self.nb.http_session.verify = True if ssl_verify else False
 
-    def _fix_for_filename(self, in_filename):
-        """ Replace path separator character in name.
+    def get_interfaces_data_structure(self, nbx_tag):
+        """Get the required device info for NetBox tagged interfaces.
+
+        interfaces_data = [
+            {
+                interface: `dcim.Interfaces`,
+                mgmt_name: str,
+                mgmt_device: `dcim.Devices`,
+                parent_device: `dcim.Devices`
+            }
+        ]
         """
+
+        list_of_interfaces = self.get_interfaces_data(nbx_tag)
+
+        interfaces_data = []
+        for intf in list_of_interfaces:
+
+            (
+                mgmt_name,
+                mgmt_device,
+                parent_device,
+            ) = self.get_interface_parent_and_mgmt_device(intf)
+
+            # build an interfaces_data record
+            interfaces_data.append(
+                {
+                    "interface": intf,
+                    "mgmt_name": mgmt_name,
+                    "mgmt_device": mgmt_device,
+                    "parent_device": parent_device,
+                }
+            )
+
+        return interfaces_data
+
+    def get_interface_parent_and_mgmt_device(self, in_intf):
+        """Get the connected parent and the management device of an
+        interface.
+
+        For a virtual chassis the management device may not be the connected
+        device.
+        """
+
+        try:
+            # an interface object has a parent named "device"
+            parent_device = self.nb.dcim.devices.get(in_intf.device.id)
+        except AttributeError:
+            logger.exception(f"ERROR getting device for {str(in_intf)}")
+
+        try:
+            mgmt_device = parent_device.virtual_chassis.master
+        except AttributeError:
+            mgmt_device = parent_device
+            mgmt_name = str(parent_device.name)
+        else:
+            mgmt_name = str(parent_device.virtual_chassis.name)
+
+        if not mgmt_device.has_details:
+            mgmt_device.full_details()
+
+        return mgmt_name, mgmt_device, parent_device
+
+    def _fix_for_filename(self, in_filename):
+        """Replace path separator character in name."""
         return in_filename.replace("/", "-")
 
     def _del_items_with_value(self, d, vals_to_del):
-        """ Recursively remove dictionary items that have a value in vals_to_del
+        """Recursively remove dictionary items that have a value in vals_to_del
 
         :param d: Dict to operate on
         :type d: dict
         :param vals_to_del: A list of values for dict.items to be removed
-        :type vals_to_del: list 
+        :type vals_to_del: list
         :return: Dict with selected items removed
         :rtype: dict
         """
@@ -50,7 +110,7 @@ class GDNetBoxer:
         )
 
     def _del_keys_from_dict(self, d, keys_to_del):
-        """ Recursively remove dictionary items that have a key in keys_to_del
+        """Recursively remove dictionary items that have a key in keys_to_del
 
         :param d: Dict to operate on.
         :type d: dict
@@ -67,51 +127,8 @@ class GDNetBoxer:
             if not k in keys_to_del
         }
 
-    def find_pri_device_for_object(self, in_obj):
-        """For a given object find the relating device containing the primary IP address.
-
-        :param in_obj: pynetbox input object
-        :type in_obj: pynetbox input object
-        :return: pynetbox object containing the primary IP address
-        :rtype: pynetbox device
-        """
-
-        # if virtual_chassis
-        #   save current device
-        vchassis_name = None    #
-
-        try:
-
-            if in_obj.primary_ip4.address:
-                if in_obj.virtual_chassis:
-                    vchassis_name = in_obj.virtual_chassis.name
-
-                return in_obj, vchassis_name
-
-        except AttributeError:
-
-            # The management IP address of an interface that is within a virtual chassis...
-            # intf = nb.dcim.devices.get(INTERFACE)
-            # intf_dev = intf.device.id
-            # intf_dev_vc = intf_dev.virtual_chassis.master.id
-            # intf_dev_vc_addr = intf_dev_vc.primary_ip4.address  # e.g. 192.168.1.21/24
-
-            try:
-                _device = self.nb.dcim.devices.get(in_obj.virtual_chassis.master.id)
-            except AttributeError:
-                pass
-
-            try:
-                # an interface object has a parent "device"
-                _device = self.nb.dcim.devices.get(in_obj.device.id)
-            except AttributeError:
-                pass
-
-            return self.find_pri_device_for_object(_device)
-
     def get_tag_from_netbox(self, tag_name=""):
-        """Retrieve the named NetBox tag data.
-        """
+        """Retrieve the named NetBox tag data."""
         self.tag_name = tag_name
         self.tag_data = self.nb.extras.tags.filter(name=self.tag_name)
         logger.debug(f"Tag data received from Netbox: {self.tag_data}")
@@ -121,8 +138,7 @@ class GDNetBoxer:
         return self.tag_data[0]
 
     def upd_tag_to_netbox(self, tag_name, **kwargs):
-        """Update the NetBox tag with new information provided."
-        """
+        """Update the NetBox tag with new information provided." """
         pass
 
     def get_interfaces_data(self, nbx_tag):
@@ -130,6 +146,8 @@ class GDNetBoxer:
 
         :param nbx_tag: The name of the NetBox tag
         :type nbx_tag: str
+        :return: self.interfaces
+        :rtype: `pynetbox.models.dcim.Interfaces`
         """
         if not nbx_tag:
             msg = "A NetBox tag must be given to be used as a filter."
@@ -205,8 +223,7 @@ class GDNetBoxer:
         return build_dict
 
     def get_devices_data(self, nbx_tag=""):
-        """Get devices for a tag.
-        """
+        """Get devices for a tag."""
         self.nbx_tag = nbx_tag
         self.devices = self.nb.dcim.devices.filter(tag=self.nbx_tag)
         return self.devices
@@ -225,7 +242,7 @@ class GDNetBoxer:
 
         1. just cast to a dict, then when needed to put back to
         Netbox perform a whole lot of data editing to remove all the bits and
-        pieces NetBox doesn't allow back in. 
+        pieces NetBox doesn't allow back in.
         TODO(GD): Check on removing/cleaning up the "problem" data when
         recving from NetBox but that may lose useful data for deployment.
 
@@ -248,7 +265,7 @@ class GDNetBoxer:
         return self._del_keys_from_dict(cleaned_objects, unwanted_dict_keys)
 
     def update_interfaces_to_netbox(self, dev_intf_data):
-        """ Write interface data to NetBox.
+        """Write interface data to NetBox.
 
         :param dev_intf_data: A dictionary of interfaces
         :type dev_intf_data: dict
@@ -277,8 +294,7 @@ class GDNetBoxer:
 
 
 def main():
-    """
-    """
+    """"""
     pass
 
 
