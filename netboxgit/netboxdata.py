@@ -1,7 +1,5 @@
 import json
 import logging
-import os
-import sys
 from pathlib import Path
 
 import pynetbox
@@ -23,69 +21,6 @@ class GDNetBoxer:
         self.nb = pynetbox.api(self.url, token=self.token, threading=self.threading)
         self.nb.http_session = requests.Session()
         self.nb.http_session.verify = True if ssl_verify else False
-
-    def get_interfaces_data_structure(self, nbx_tag):
-        """Get the required device info for NetBox tagged interfaces.
-
-        interfaces_data = [
-            {
-                interface: `dcim.Interfaces`,
-                mgmt_name: str,
-                mgmt_device: `dcim.Devices`,
-                parent_device: `dcim.Devices`
-            }
-        ]
-        """
-
-        list_of_interfaces = self.get_interfaces_data(nbx_tag)
-
-        interfaces_data = []
-        for intf in list_of_interfaces:
-
-            (
-                mgmt_name,
-                mgmt_device,
-                parent_device,
-            ) = self.get_interface_parent_and_mgmt_device(intf)
-
-            # build an interfaces_data record
-            interfaces_data.append(
-                {
-                    "interface": intf,
-                    "mgmt_name": mgmt_name,
-                    "mgmt_device": mgmt_device,
-                    "parent_device": parent_device,
-                }
-            )
-
-        return interfaces_data
-
-    def get_interface_parent_and_mgmt_device(self, in_intf):
-        """Get the connected parent and the management device of an
-        interface.
-
-        For a virtual chassis the management device may not be the connected
-        device.
-        """
-
-        try:
-            # an interface object has a parent named "device"
-            parent_device = self.nb.dcim.devices.get(in_intf.device.id)
-        except AttributeError:
-            logger.exception(f"ERROR getting device for {str(in_intf)}")
-
-        try:
-            mgmt_device = parent_device.virtual_chassis.master
-        except AttributeError:
-            mgmt_device = parent_device
-            mgmt_name = str(parent_device.name)
-        else:
-            mgmt_name = str(parent_device.virtual_chassis.name)
-
-        if not mgmt_device.has_details:
-            mgmt_device.full_details()
-
-        return mgmt_name, mgmt_device, parent_device
 
     def _fix_for_filename(self, in_filename):
         """Replace path separator character in name."""
@@ -124,7 +59,7 @@ class GDNetBoxer:
         return {
             k: self._del_keys_from_dict(v, keys_to_del)
             for k, v in d.items()
-            if not k in keys_to_del
+            if k not in keys_to_del
         }
 
     def get_tag_from_netbox(self, tag_name=""):
@@ -134,14 +69,14 @@ class GDNetBoxer:
         logger.debug(f"Tag data received from Netbox: {self.tag_data}")
         assert (
             len(self.tag_data) == 1
-        ), f"Unexpected number of tags received, expected one"
+        ), "Unexpected number of tags received, expected one"
         return self.tag_data[0]
 
     def upd_tag_to_netbox(self, tag_name, **kwargs):
         """Update the NetBox tag with new information provided." """
         pass
 
-    def get_interfaces_data(self, nbx_tag):
+    def get_interfaces_for_tag(self, nbx_tag):
         """Get interfaces for a tag.
 
         :param nbx_tag: The name of the NetBox tag
@@ -183,10 +118,10 @@ class GDNetBoxer:
         self.interfaces = interfaces
         devices_path = Path.joinpath(base_path, Path("devices/"))
 
-        for interface in self.interfaces:
-            dev_name = interface.device.name
+        for intf in self.interfaces:
+            dev_name = intf["mgmt_name"]
             # Interface name forward slashes clash with filesystem path
-            intf_name = interface.name.replace("/", "-")
+            intf_name = intf["interface"].name.replace("/", "-")
             intfs_path = Path.joinpath(devices_path / dev_name / Path("interfaces/"))
             intfs_path.mkdir(parents=True, exist_ok=True)
             intf_file_name = ".".join([intf_name, "json"])
@@ -194,7 +129,7 @@ class GDNetBoxer:
             fout = Path(intfs_path / intf_file_name)
             if not fout.exists():
                 fout.touch()
-            intf = dict(interface)  # cast pynetbox object to dict
+            intf = dict(intf["interface"])  # cast pynetbox object to dict
             intf_rec = json.dumps(intf, sort_keys=True, indent=4)
             with open(fout, "w", buffering=1) as f:
                 f.write(intf_rec)
@@ -217,7 +152,7 @@ class GDNetBoxer:
             with open(file, "r") as f:
                 this = json.loads(f.read())
             dev_name = this["device"]["name"]
-            if not dev_name in build_dict:
+            if dev_name not in build_dict:
                 build_dict[dev_name] = {}
             build_dict[dev_name][this["name"]] = this
         return build_dict
@@ -291,6 +226,83 @@ class GDNetBoxer:
                 logger.exception(error)
             except Exception as exc:  # unexpected exception
                 logger.exception(exc, False)
+
+    def get_interface_device_data(self, in_intf):
+        """Get the contained device and the management device of an
+        interface.
+
+        Return device objects for connected device and management device. For
+        a virtual chassis the management device may not be the connected
+        device. Also return the name of the device, for virtchassis this is
+        the virtchassis name.
+
+        :param in_intf: A NetBox interface object to process
+        :type in_intf: `dcim.Interfaces`
+        :return: mgmt_name The external name of the device or virtual chassis
+        :rtype: str
+        :return: mgmt_device The device to connect to manage it
+        :rtype: `dcim.Devices`
+        :return: parent_device The device containing the interface
+        :rtype: `dcim.Devices`
+        :return: mgmt_name, mgmt_device, parent_device
+        :rtype: tuple
+        """
+
+        try:
+            # an interface object has an attribute named "device"
+            parent_device = self.nb.dcim.devices.get(in_intf.device.id)
+        except AttributeError:
+            logger.exception(f"ERROR getting device for {str(in_intf)}")
+
+        # Use virtchassis mgmt info if it exists
+        try:
+            mgmt_device = parent_device.virtual_chassis.master
+        except AttributeError:
+            mgmt_device = parent_device
+            mgmt_name = str(parent_device.name)
+        else:
+            mgmt_name = str(parent_device.virtual_chassis.name)
+
+        # pynetbox child object references hold minimal data by default
+        if not mgmt_device.has_details:
+            mgmt_device.full_details()
+
+        return mgmt_name, mgmt_device, parent_device
+
+    def get_interfaces_data(self, nbx_tag):
+        """Get the required device info for NetBox tagged interfaces.
+
+        interfaces_data = [
+            {
+                interface: `dcim.Interfaces`,
+                mgmt_name: str,
+                mgmt_device: `dcim.Devices`,
+                parent_device: `dcim.Devices`
+            }
+        ]
+        """
+        interfaces_data = []
+        list_of_interfaces = self.get_interfaces_for_tag(nbx_tag)
+
+        for intf in list_of_interfaces:
+
+            (
+                mgmt_name,
+                mgmt_device,
+                parent_device,
+            ) = self.get_interface_device_data(intf)
+
+            # build an interfaces_data record
+            interfaces_data.append(
+                {
+                    "interface": intf,
+                    "mgmt_name": mgmt_name,
+                    "mgmt_device": mgmt_device,
+                    "parent_device": parent_device,
+                }
+            )
+
+        return interfaces_data
 
 
 def main():
