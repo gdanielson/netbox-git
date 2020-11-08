@@ -1,7 +1,5 @@
 import json
 import logging
-import os
-import sys
 from pathlib import Path
 
 import pynetbox
@@ -11,12 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 class GDNetBoxer:
-    """
-    """
+    """"""
 
     def __init__(self, url=None, token=None, threading=False, ssl_verify=True):
-        """
-        """
+        """"""
 
         self.url = url
         self.token = token
@@ -27,17 +23,16 @@ class GDNetBoxer:
         self.nb.http_session.verify = True if ssl_verify else False
 
     def _fix_for_filename(self, in_filename):
-        """ Replace path separator character in name.
-        """
+        """Replace path separator character in name."""
         return in_filename.replace("/", "-")
 
     def _del_items_with_value(self, d, vals_to_del):
-        """ Recursively remove dictionary items that have a value in vals_to_del
+        """Recursively remove dictionary items that have a value in vals_to_del
 
         :param d: Dict to operate on
         :type d: dict
         :param vals_to_del: A list of values for dict.items to be removed
-        :type vals_to_del: list 
+        :type vals_to_del: list
         :return: Dict with selected items removed
         :rtype: dict
         """
@@ -50,7 +45,7 @@ class GDNetBoxer:
         )
 
     def _del_keys_from_dict(self, d, keys_to_del):
-        """ Recursively remove dictionary items that have a key in keys_to_del
+        """Recursively remove dictionary items that have a key in keys_to_del
 
         :param d: Dict to operate on.
         :type d: dict
@@ -64,64 +59,30 @@ class GDNetBoxer:
         return {
             k: self._del_keys_from_dict(v, keys_to_del)
             for k, v in d.items()
-            if not k in keys_to_del
+            if k not in keys_to_del
         }
 
-    def find_pri_device_for_object(self, in_obj):
-        """For a given object find the relating device containing the primary IP address.
-
-        :param in_obj: pynetbox input object
-        :type in_obj: pynetbox input object
-        :return: pynetbox object containing the primary IP address
-        :rtype: pynetbox device
-        """
-
-        try:
-
-            if in_obj.primary_ip4.address:
-                return in_obj
-
-        except AttributeError:
-
-            # The management IP address of an interface that is within a virtual chassis...
-            # intf = nb.dcim.devices.get(INTERFACE)
-            # intf_dev = intf.device.id
-            # intf_dev_vc = intf_dev.virtual_chassis.master.id
-            # intf_dev_vc_addr = intf_dev_vc.primary_ip4.address  # e.g. 192.168.1.21/24
-
-            try:
-                _device = self.nb.dcim.devices.get(in_obj.virtual_chassis.master.id)
-            except AttributeError:
-                pass
-
-            try:
-                _device = self.nb.dcim.devices.get(in_obj.device.id)
-            except AttributeError:
-                pass
-
-            return self.find_pri_device_for_object(_device)
-
     def get_tag_from_netbox(self, tag_name=""):
-        """Retrieve the named NetBox tag data.
-        """
+        """Retrieve the named NetBox tag data."""
         self.tag_name = tag_name
         self.tag_data = self.nb.extras.tags.filter(name=self.tag_name)
         logger.debug(f"Tag data received from Netbox: {self.tag_data}")
         assert (
             len(self.tag_data) == 1
-        ), f"Unexpected number of tags received, expected one"
+        ), "Unexpected number of tags received, expected one"
         return self.tag_data[0]
 
     def upd_tag_to_netbox(self, tag_name, **kwargs):
-        """Update the NetBox tag with new information provided."
-        """
+        """Update the NetBox tag with new information provided." """
         pass
 
-    def get_interfaces_data(self, nbx_tag):
+    def get_interfaces_for_tag(self, nbx_tag):
         """Get interfaces for a tag.
 
         :param nbx_tag: The name of the NetBox tag
         :type nbx_tag: str
+        :return: self.interfaces
+        :rtype: `pynetbox.models.dcim.Interfaces`
         """
         if not nbx_tag:
             msg = "A NetBox tag must be given to be used as a filter."
@@ -157,10 +118,10 @@ class GDNetBoxer:
         self.interfaces = interfaces
         devices_path = Path.joinpath(base_path, Path("devices/"))
 
-        for interface in self.interfaces:
-            dev_name = interface.device.name
+        for intf in self.interfaces:
+            dev_name = intf["mgmt_name"]
             # Interface name forward slashes clash with filesystem path
-            intf_name = interface.name.replace("/", "-")
+            intf_name = intf["interface"].name.replace("/", "-")
             intfs_path = Path.joinpath(devices_path / dev_name / Path("interfaces/"))
             intfs_path.mkdir(parents=True, exist_ok=True)
             intf_file_name = ".".join([intf_name, "json"])
@@ -168,7 +129,7 @@ class GDNetBoxer:
             fout = Path(intfs_path / intf_file_name)
             if not fout.exists():
                 fout.touch()
-            intf = dict(interface)  # cast pynetbox object to dict
+            intf = dict(intf["interface"])  # cast pynetbox object to dict
             intf_rec = json.dumps(intf, sort_keys=True, indent=4)
             with open(fout, "w", buffering=1) as f:
                 f.write(intf_rec)
@@ -191,14 +152,13 @@ class GDNetBoxer:
             with open(file, "r") as f:
                 this = json.loads(f.read())
             dev_name = this["device"]["name"]
-            if not dev_name in build_dict:
+            if dev_name not in build_dict:
                 build_dict[dev_name] = {}
             build_dict[dev_name][this["name"]] = this
         return build_dict
 
     def get_devices_data(self, nbx_tag=""):
-        """Get devices for a tag.
-        """
+        """Get devices for a tag."""
         self.nbx_tag = nbx_tag
         self.devices = self.nb.dcim.devices.filter(tag=self.nbx_tag)
         return self.devices
@@ -217,7 +177,7 @@ class GDNetBoxer:
 
         1. just cast to a dict, then when needed to put back to
         Netbox perform a whole lot of data editing to remove all the bits and
-        pieces NetBox doesn't allow back in. 
+        pieces NetBox doesn't allow back in.
         TODO(GD): Check on removing/cleaning up the "problem" data when
         recving from NetBox but that may lose useful data for deployment.
 
@@ -240,7 +200,7 @@ class GDNetBoxer:
         return self._del_keys_from_dict(cleaned_objects, unwanted_dict_keys)
 
     def update_interfaces_to_netbox(self, dev_intf_data):
-        """ Write interface data to NetBox.
+        """Write interface data to NetBox.
 
         :param dev_intf_data: A dictionary of interfaces
         :type dev_intf_data: dict
@@ -267,10 +227,86 @@ class GDNetBoxer:
             except Exception as exc:  # unexpected exception
                 logger.exception(exc, False)
 
+    def get_interface_device_data(self, in_intf):
+        """Get the contained device and the management device of an
+        interface.
+
+        Return device objects for connected device and management device. For
+        a virtual chassis the management device may not be the connected
+        device. Also return the name of the device, for virtchassis this is
+        the virtchassis name.
+
+        :param in_intf: A NetBox interface object to process
+        :type in_intf: `dcim.Interfaces`
+        :return: mgmt_name The external name of the device or virtual chassis
+        :rtype: str
+        :return: mgmt_device The device to connect to manage it
+        :rtype: `dcim.Devices`
+        :return: parent_device The device containing the interface
+        :rtype: `dcim.Devices`
+        :return: mgmt_name, mgmt_device, parent_device
+        :rtype: tuple
+        """
+
+        try:
+            # an interface object has an attribute named "device"
+            parent_device = self.nb.dcim.devices.get(in_intf.device.id)
+        except AttributeError:
+            logger.exception(f"ERROR getting device for {str(in_intf)}")
+
+        # Use virtchassis mgmt info if it exists
+        try:
+            mgmt_device = parent_device.virtual_chassis.master
+        except AttributeError:
+            mgmt_device = parent_device
+            mgmt_name = str(parent_device.name)
+        else:
+            mgmt_name = str(parent_device.virtual_chassis.name)
+
+        # pynetbox child object references hold minimal data by default
+        if not mgmt_device.has_details:
+            mgmt_device.full_details()
+
+        return mgmt_name, mgmt_device, parent_device
+
+    def get_interfaces_data(self, nbx_tag):
+        """Get the required device info for NetBox tagged interfaces.
+
+        interfaces_data = [
+            {
+                interface: `dcim.Interfaces`,
+                mgmt_name: str,
+                mgmt_device: `dcim.Devices`,
+                parent_device: `dcim.Devices`
+            }
+        ]
+        """
+        interfaces_data = []
+        list_of_interfaces = self.get_interfaces_for_tag(nbx_tag)
+
+        for intf in list_of_interfaces:
+
+            (
+                mgmt_name,
+                mgmt_device,
+                parent_device,
+            ) = self.get_interface_device_data(intf)
+
+            # build an interfaces_data record
+            interfaces_data.append(
+                {
+                    "interface": intf,
+                    "mgmt_name": mgmt_name,
+                    "mgmt_device": mgmt_device,
+                    "parent_device": parent_device,
+                }
+            )
+
+        return interfaces_data
+
 
 def main():
-    """
-    """
+    """"""
     pass
 
 

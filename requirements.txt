@@ -1,10 +1,10 @@
-certifi==2020.4.5.2
+certifi==2020.6.20
 chardet==3.0.4
 gitdb==4.0.5
-GitPython==3.1.3
-idna==2.9
-pynetbox==4.3.1
+GitPython==3.1.11
+idna==2.10
+pynetbox==5.1.0
 requests==2.24.0
 six==1.15.0
 smmap==3.0.4
-urllib3==1.25.9
+urllib3==1.25.11

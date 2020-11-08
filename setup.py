@@ -24,7 +24,7 @@ def main():
 
     setup(
         name="netboxgit",
-        version="0.1.4a",
+        version="0.1.5",
         description="Manage NetBox object data into Git version control.",
         url="https://github.com/gdanielson/netbox-git",
         author="gdanielson",
